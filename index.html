@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<svg width="400" height="400"></svg>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+	const svg = d3.select("svg");
+	const margin = {
+		top: 20,
+		right: 20,
+		bottom: 30,
+		left: 40,
+	}; // margin of chart
+	const width = +svg.attr("width") - margin.left - margin.right;
+	const height = +svg.attr("height") - margin.top - margin.bottom;
+	const g = svg.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	const days = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+	const cellsize = 40;
+	const tooltipmargin = 20;
+	const timeWeek = d3.utcSunday;
+	const countDay = (d) => d.getUTCDay();
+	const colorFn = d3.scaleSequential(d3.interpolateOrRd).domain([0, 100]);
+
+	const yg = svg.append("g").attr("class", "yaxis"); // y axis group
+	yg.selectAll("text")
+		.data(days)
+		.join("text")
+		.text((d) => d)
+		.attr("x", margin.left)
+		.attr("y", (d, i) => (i + 1) * cellsize + margin.top);
+
+	const rg = svg.append("g").attr("class", "rectgroup"); // rectangles group
+
+	const tooltip = d3
+		.select("svg")
+		.append("div")
+		.style("background-color", "white")
+		.style("border", "solid")
+		.style("border-width", "2px")
+		.style("border-radius", "5px")
+		.style("padding", "5px")
+		.style("visibility", "hidden");
+
+	d3.csv("data.csv").then((data) => {
+		// first sort the data according to date
+		data.sort((a, b) => {
+			return new Date(a.date) - new Date(b.date);
+		});
+		const mindate = d3.min(data.map((d) => d.date));
+		const minweek = timeWeek.count(d3.utcYear(new Date(mindate)), new Date(mindate));
+
+		const dayrect = rg
+			.selectAll("rect")
+			.data(data)
+			.join("rect")
+			.attr("width", cellsize - 1.5)
+			.attr("height", cellsize - 1.5)
+			.attr("x", (d, i) => {
+				return margin.left * 2.5 + (timeWeek.count(d3.utcYear(new Date(d.date)), new Date(d.date)) - minweek) * cellsize; //
+			})
+			.attr("y", (d) => {
+				return countDay(new Date(d.date)) * cellsize + margin.top * 2;
+			}) // y
+			.attr("fill", (d) => colorFn(d.value))
+			.style("stroke-width", 4)
+			.style("stroke", "none")
+			.attr("rx", 4)
+			.attr("ry", 4);
+
+		dayrect
+			.on("mouseenter", function (e, val) {
+				d3.select(e.target).style("stroke", "black");
+				tooltip.style("visibility", "visible");
+			})
+			.on("mouseleave", function (e, val) {
+				d3.select(e.target).style("stroke", "none");
+				tooltip.style("visibility", "hidden");
+			})
+			.on("mousemove", function (e, val) {
+				tooltip
+					.style("top", e.offsetY + tooltipmargin + "px")
+					.style("left", e.offsetX + tooltipmargin + "px")
+					.html("Date: <b>" + val.date + "</b><br>" + "Value: <b>" + val.value + "</b>");
+			});
+	});
+</script>
